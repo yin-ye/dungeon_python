@@ -11,6 +11,7 @@ import world
 import random
 import utils
 from utils import Directions
+import config
 
 class Link():
 
@@ -22,28 +23,20 @@ class Link():
 
         # What moves are possible.
         self.moves = [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]
+
+        # initialize dictionary to store grid positions and their respective utilities
+        self.dict = {}
+
+        # get number of rows and columns of game grid
+        self.worldBreadth = config.worldBreadth
+        self.worldLength = config.worldLength
+
+        # get directional probability for moving in the supposed and unintentional directions
+        self.directionProbability = config.directionProbability
+        self.otherDirectionProbability = config.otherDirectionProbability
         
     def makeMove(self):
-        # This is the function you need to define
-
-        # Get the location of the gold.
-        allGold = self.gameWorld.getGoldLocation()
-
-        # Get the location of the wumpus.
-        wumpusLocation = self.gameWorld.getWumpusLocation()
-        #print(wumpusLocation[0].x)
-        #print(wumpusLocation[0].y)
-
-        # Get the location of the pits.
-        pitLocation = self.gameWorld.getPitsLocation()
-        # there are many pits, wumpus and golds
-        #print(pitLocation[0].x)
-        #print(pitLocation[0].y)
-
-        # Get the location of the Link.
-        linkLocation = self.gameWorld.getLinkLocation()
-        print(linkLocation.x)
-
+        self.positionAndUtility()
         """
         if len(allGold) > 0:
             nextGold = allGold[0]
@@ -60,5 +53,70 @@ class Link():
             return Directions.SOUTH
         """
 
-    def staticMovement(self):
-        pass
+    def positionAndUtility(self):
+        allGold = self.gameWorld.getGoldLocation()
+
+        # Get the location of the wumpus.
+        wumpusLocation = self.gameWorld.getWumpusLocation()
+        #print(wumpusLocation[0].x)
+        #print(wumpusLocation[0].y)
+
+        # Get the location of the pits.
+        pitLocation = self.gameWorld.getPitsLocation()
+        # there are many pits, wumpus and golds
+        #print(pitLocation[0].x)
+        #print(pitLocation[0].y)
+
+        # Get the location of the Link.
+        linkLocation = self.gameWorld.getLinkLocation()
+
+        # first append the grids that have a value
+        for gold in allGold:
+            self.dict[(gold.x, gold.y)] = 1
+        for wumpus in wumpusLocation:
+            self.dict[(wumpus.x, wumpus.y)] = -1
+        for pit in pitLocation:
+            self.dict[(pit.x, pit.y)] = -1
+
+        for x in range(self.worldBreadth):
+            for y in range(self.worldLength):
+                if (x, y) not in self.dict:
+                    self.dict[(x, y)] = 0
+        print(self.dict)
+
+    def getAndPositionUtility(self):
+        for keys in self.dict:
+            #calculate up, down,....
+            pass
+
+
+    def calculateUtilityByDirection(self, keys):
+        #get for up direction
+        x = keys[0]
+        y = keys[1]
+        utility = 0
+
+        # going in the intended direction with P = 0.8
+        if x + 1 < self.worldBreadth:
+            utility += self.directionProbability * self.dict[(x + 1, y)]
+        else:
+            utility += self.directionProbability * self.dict[(x, y)]
+
+        #going left to the intended direction
+        if y - 1 < 0:
+            utility += self.otherDirectionProbability * self.dict[(x, y)]
+        else:
+            utility += self.otherDirectionProbability * self.dict[(x, y - 1)]
+
+        #going rigth to the intended direction
+        if y + 1 >= self.worldLength:
+            utility += self.otherDirectionProbability * self.dict[(x, y)]
+        else:
+            utility += self.otherDirectionProbability * self.dict[(x, y + 1)]
+
+        # going down
+        if x - 1 < 0:
+            utility += self.otherDirectionProbability * self.dict[(x, y)]
+        else:
+            utility += self.otherDirectionProbability * self.dict[(x - 1, y)]
+        

@@ -39,6 +39,7 @@ nonDeterministic = False
 # If Link is nondeterministic, probability that they carry out the
 # intended action:
 directionProbability = 0.8
+otherDirectionProbability = 0.2/3
 
 # Control images
 #
