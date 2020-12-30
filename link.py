@@ -21,11 +21,10 @@ class Link():
         # query the state of the world
         self.gameWorld = dungeon
 
-        # What moves are possible.
-        self.moves = [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]
-
         # initialize dictionary to store grid positions and their respective utilities
         self.dict = {}
+
+        self.moves = [Directions.NORTH, Directions.SOUTH, Directions.EAST, Directions.WEST]
 
         # get number of rows and columns of game grid
         self.worldBreadth = config.worldBreadth
@@ -34,27 +33,60 @@ class Link():
         # get directional probability for moving in the supposed and unintentional directions
         self.directionProbability = config.directionProbability
         self.otherDirectionProbability = config.otherDirectionProbability
+
+        self.direction = ''
+        self.count_when = 0
+
+        """
+        reward for wumpus and pit will depend on if the game is dynamic or static. If the game is
+        dynamic, a lower value for pits and wumpus will be given
+        """
+        self.wumpus_reward = 0
+        self.pit_reward = 0
+
+    """
+    if the game is static, wait for 20+ iterations to begin to move Link
+    """
+    def move_static(self):
+        self.wumpus_reward = -1 
+        self.pit_reward = -1.3
         
+        if self.count_when >= 20:
+            self.moveLink()
+
+    """
+    game is dynamic. Call moveLink() without any delay
+    """
+    def move_dynamic(self):
+        self.wumpus_reward = -3
+        self.pit_reward = -2
+        self.moveLink()
+
+
     def makeMove(self):
         self.positionAndUtility()
-        #print(self.dict)
         self.getAndPositionUtility()
-        self.moveLink()
-        """
-        if len(allGold) > 0:
-            nextGold = allGold[0]
-        myPosition = self.gameWorld.getLinkLocation()
-        # If not at the same x coordinate, reduce the difference
-        if nextGold.x > myPosition.x:
-            return Directions.EAST
-        if nextGold.x < myPosition.x:
+
+        # checks for dynamic value of the game
+        if config.dynamic == False:
+            self.move_static()
+        elif config.dynamic == True:
+            self.move_dynamic()
+        else:
+            return
+
+        # moves Link depending on the greatest utility
+        if self.direction == 'left':
             return Directions.WEST
-        # If not at the same y coordinate, reduce the difference
-        if nextGold.y > myPosition.y:
-            return Directions.NORTH
-        if nextGold.y < myPosition.y:
+        elif self.direction == 'right':
+            return Directions.EAST
+        elif self.direction == 'up':
             return Directions.SOUTH
-        """
+        elif self.direction == 'down':
+            return Directions.NORTH
+        else: 
+            return
+        
 
     """
     gets initial positions of pits, wumpus and golds. The dictionary checks for the other
@@ -74,9 +106,9 @@ class Link():
         for gold in allGold:
             self.dict[(gold.x, gold.y)] = 1
         for wumpus in wumpusLocation:
-            self.dict[(wumpus.x, wumpus.y)] = -1
+            self.dict[(wumpus.x, wumpus.y)] = self.wumpus_reward
         for pit in pitLocation:
-            self.dict[(pit.x, pit.y)] = -1
+            self.dict[(pit.x, pit.y)] = self.pit_reward
 
         for x in range(self.worldBreadth):
             for y in range(self.worldLength):
@@ -84,8 +116,11 @@ class Link():
                     self.dict[(x, y)] = 0
 
 
-    # calculate utility and update with grid position in dictionary, self.dict
+    """
+    calculates utility and update with grid position in dictionary, and stores in self.dict
+    """ 
     def getAndPositionUtility(self):
+        self.count_when += 1
         # reward to moving
         reward = -0.04
 
@@ -113,31 +148,30 @@ class Link():
         """
         # left
         if linkLocation.x - 1 < 0:
-            left = -2
+            left = -12
         else:
-            left = self.dict[(linkLocation.x, linkLocation.y - 1)]
+            left = self.dict[(linkLocation.x - 1, linkLocation.y)]
         pos_dict['left'] = left
         
-
         # right
         if linkLocation.x + 1 >= self.worldBreadth:
-            right = -2
+            right = -12
         else:
             right = self.dict[(linkLocation.x + 1, linkLocation.y)]
         pos_dict['right'] = right
 
         # down
-        if linkLocation.y - 1 < 0:
-            down = -2
+        if linkLocation.y + 1 < self.worldLength:
+            down = self.dict[(linkLocation.x, linkLocation.y + 1)]
         else:
-            down = self.dict[(linkLocation.x, linkLocation.y - 1)]
+            down = -12
         pos_dict['down'] = down
-
+        
         # up
-        if linkLocation.y + 1 >= self.worldLength:
-            up = -2
+        if linkLocation.y - 1 < 0:
+            up = -12
         else:
-            up = self.dict[(linkLocation.x, linkLocation.y + 1)]
+            up = self.dict[(linkLocation.x, linkLocation.y - 1)]
         pos_dict['up'] = up
         
 
@@ -149,59 +183,13 @@ class Link():
         max_util_val = list(pos_dict.values())
  
         position = max_util_val.index(max_util)
-        direction = max_util_key[position] 
-        print(direction)
-        
-        if direction == 'left':
-            print('L')
-            return self.moves[3]
-        elif direction == 'right':
-            print('R')
-            return self.moves[2]
-        elif direction == 'up':
-            print('U')
-            return self.moves[0]
-        else:
-            print('S')
-            return self.moves[1]
-        
-
+        self.direction = max_util_key[position] 
+           
     """
     calculate all the utility and probability(for up, down, left and right) for all grid positions
     """
     def calculateUtilityForUp(self, keys):
         #get for up direction
-        x = keys[0]
-        y = keys[1]
-        utility = 0
-
-        # going in the intended direction with P = 0.8
-        if y + 1 < self.worldLength:
-            utility += self.directionProbability * self.dict[(x, y + 1)]
-        else:
-            utility += self.directionProbability * self.dict[(x, y)]
-
-        #going left to the intended direction
-        if x - 1 < 0:
-            utility += self.otherDirectionProbability * self.dict[(x, y)]
-        else:
-            utility += self.otherDirectionProbability * self.dict[(x - 1, y)]
-
-        #going rigth to the intended direction
-        if x + 1 >= self.worldBreadth:
-            utility += self.otherDirectionProbability * self.dict[(x, y)]
-        else:
-            utility += self.otherDirectionProbability * self.dict[(x + 1, y)]
-
-        # going down
-        if y - 1 < 0:
-            utility += self.otherDirectionProbability * self.dict[(x, y)]
-        else:
-            utility += self.otherDirectionProbability * self.dict[(x, y - 1)]
-        
-        return utility
-        
-    def calculateUtilityForDown(self, keys):
         x = keys[0]
         y = keys[1]
         utility = 0
@@ -224,11 +212,42 @@ class Link():
         else:
             utility += self.otherDirectionProbability * self.dict[(x + 1, y)]
 
-        # going up
+        # going down
         if y + 1 < self.worldLength:
             utility += self.otherDirectionProbability * self.dict[(x, y + 1)]
         else:
             utility += self.otherDirectionProbability * self.dict[(x, y)]
+        
+        return utility
+        
+    def calculateUtilityForDown(self, keys):
+        x = keys[0]
+        y = keys[1]
+        utility = 0
+        
+        # going in the intended direction with P = 0.8
+        if y + 1 < self.worldLength:
+            utility += self.directionProbability * self.dict[(x, y + 1)]
+        else:
+            utility += self.directionProbability * self.dict[(x, y)]
+
+        #going left to the intended direction
+        if x - 1 < 0:
+            utility += self.otherDirectionProbability * self.dict[(x, y)]
+        else:
+            utility += self.otherDirectionProbability * self.dict[(x - 1, y)]
+
+        #going rigth to the intended direction
+        if x + 1 >= self.worldBreadth:
+            utility += self.otherDirectionProbability * self.dict[(x, y)]
+        else:
+            utility += self.otherDirectionProbability * self.dict[(x + 1, y)]
+
+        # going up
+        if y - 1 < 0:
+            utility += self.otherDirectionProbability * self.dict[(x, y)]
+        else:
+            utility += self.otherDirectionProbability * self.dict[(x, y - 1)]
 
         return utility
         
@@ -255,7 +274,7 @@ class Link():
         else:
             utility += self.otherDirectionProbability * self.dict[(x + 1, y)]
 
-        # going down
+        # going up
         if y - 1 < 0:
             utility += self.otherDirectionProbability * self.dict[(x, y)]
         else:

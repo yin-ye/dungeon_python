@@ -18,7 +18,7 @@ numberOfGold = 2
 # Control dynamism
 #
 # If dynamic is True, then the Wumpus will move.
-dynamic = False
+dynamic = True
 
 # Control observability --- NOT YET IMPLEMENTED
 #
